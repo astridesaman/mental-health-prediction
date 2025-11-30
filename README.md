@@ -86,6 +86,26 @@ Input → Linear(128) → ReLU → Dropout
 
 ---
 
+## Arborescence 
+
+mental-health-prediction/
+├── data/
+│ ├── train.csv
+│ ├── test.csv
+│ └── sample_submission.csv
+│
+├── src/
+│ ├── init.py
+│ ├── dataset.py
+│ ├── model.py
+│ └── trainer.py
+│
+├── best_model_weights.pt
+├── main.py
+├── predict.py
+├── submission.csv
+└── README.md
+
 ## 📊 Résultats obtenus
 
 Sur l’ensemble de validation :
