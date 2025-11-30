@@ -1,46 +1,47 @@
-from src.trainer import MentalHealthTrainer, load_and_preprocess
-from src.dataset import MentalDataset
+from src.trainer import load_and_preprocess
 from src.model import MentalHealthModel
+from src.pred import preprocess_test
 
 import torch
-import torch.optim as optim
+
+import pandas as pd
 
 def main():
-    # 1) Charger & prétraiter
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # 1) Recharger le prétraitement du train
+    # (on ne garde que mean, std, feature_cols)
     X_train, y_train, X_val, y_val, mean, std, feature_cols = load_and_preprocess(
         "./data/train.csv"
     )
-
-    train_set = MentalDataset(X_train, y_train)
-    val_set = MentalDataset(X_val, y_val)
-
     input_dim = X_train.shape[1]
+
+    # 2) Charger test.csv et sample_submission.csv
+    df_test = pd.read_csv("./data/test.csv")
+    df_sample = pd.read_csv("./data/sample_submission.csv")
+
+    # 3) Prétraiter X_test
+    X_test = preprocess_test(df_test, feature_cols, mean, std)
+
+    # 4) Construire le modèle et charger les meilleurs poids
     model = MentalHealthModel(input_dim)
+    state_dict = torch.load("best_model_weights.pt", map_location=device)
+    model.load_state_dict(state_dict)
+    model.to(device)
+    model.eval()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # 5) Prédire
+    with torch.inference_mode():
+        X_tensor = torch.from_numpy(X_test).to(device)
+        probs = model(X_tensor).cpu().numpy().reshape(-1)  # sigmoid déjà dans le modèle
+        preds = (probs >= 0.5).astype(int)                 # 0 / 1
 
-    optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+    # 6) Construire submission.csv
+    submission = df_sample.copy()
+    submission["Depression"] = preds
 
-    trainer = MentalHealthTrainer(
-        batch_size=64,
-        n_epochs=25,
-        eval_samples=10_000,  # possibilité d'augmenter
-    )
-
-    trainer.train(model, train_set, val_set, optimizer, device)
-
-    # Sauvegarde du modèle + stats (pour predict.py plus tard)
-    torch.save(
-        {
-            "model_state_dict": model.state_dict(),
-            "mean": mean,
-            "std": std,
-            "feature_cols": feature_cols,
-        },
-        "mental_health_model.pt",
-    )
-
-    print("Modèle + stats sauvegardés dans mental_health_model.pt")
+    submission.to_csv("submission.csv", index=False)
+    print("submission.csv généré.")
 
 
 if __name__ == "__main__":
