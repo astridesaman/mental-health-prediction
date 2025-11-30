@@ -24,7 +24,7 @@ def main():
     trainer = MentalHealthTrainer(
         batch_size=64,
         n_epochs=25,
-        eval_samples=10_000,  # tu peux augmenter
+        eval_samples=10_000,  # possibilité d'augmenter
     )
 
     trainer.train(model, train_set, val_set, optimizer, device)
