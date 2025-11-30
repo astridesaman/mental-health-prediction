@@ -17,6 +17,24 @@ L’objectif est double :
 
 ## 📁 Arborescence du projet
 
+mental-health-prediction/
+├── data/
+│ ├── train.csv
+│ ├── test.csv
+│ └── sample_submission.csv
+│
+├── src/
+│ ├── init.py
+│ ├── dataset.py
+│ ├── model.py
+│ └── trainer.py
+│
+├── best_model_weights.pt
+├── main.py
+├── predict.py
+├── submission.csv
+└── README.md
+
 
 ---
 
@@ -85,26 +103,6 @@ Input → Linear(128) → ReLU → Dropout
 - Sauvegarde automatique des meilleurs poids
 
 ---
-
-## Arborescence 
-
-mental-health-prediction/
-├── data/
-│ ├── train.csv
-│ ├── test.csv
-│ └── sample_submission.csv
-│
-├── src/
-│ ├── init.py
-│ ├── dataset.py
-│ ├── model.py
-│ └── trainer.py
-│
-├── best_model_weights.pt
-├── main.py
-├── predict.py
-├── submission.csv
-└── README.md
 
 ## 📊 Résultats obtenus
 
