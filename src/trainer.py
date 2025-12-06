@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import Dict, List
 from src.dataset import MentalDataset
-from src.model import MentalHealthModel
 
 import numpy as np
 import pandas as pd
@@ -98,20 +97,25 @@ def load_and_preprocess(path: str):
 class MentalHealthTrainer:
     batch_size: int
     n_epochs: int
-    eval_samples: int  # nb d'échantillons pour l'éval (train/val)
+    eval_samples: int  # nb d'échantillons pour l'éval train/val
 
     def train(
         self,
-        model: MentalHealthModel,
+        model: torch.nn.Module,
         train_set: MentalDataset,
         val_set: MentalDataset,
         optimizer: optim.Optimizer,
         device: torch.device,
-    ):
+        model_name: str = "model",
+    ) -> float:
+        """
+        Entraîne UN modèle et renvoie la meilleure accuracy validation.
+        Sauvegarde les meilleurs poids dans best_model_weights_{model_name}.pt
+        """
         model.to(device)
 
         n_params = sum(p.numel() for p in model.parameters())
-        print(f"Number of parameters: {n_params:,}")
+        print(f"\n=== Training {model_name} ({n_params:,} params) ===")
 
         train_loader = DataLoader(
             train_set,
@@ -126,7 +130,7 @@ class MentalHealthTrainer:
         counter = 0
 
         for epoch in range(self.n_epochs):
-            # TRAIN 
+            # ---- TRAIN ----
             model.train()
             train_loss = 0.0
             train_acc = 0.0
@@ -136,17 +140,16 @@ class MentalHealthTrainer:
                 X_batch, y_batch = X_batch.to(device), y_batch.to(device)
 
                 optimizer.zero_grad()
-                preds = model(X_batch)  # (B,1) dans [0,1]
+                preds = model(X_batch)          # (B,1) dans [0,1]
                 loss = F.binary_cross_entropy(preds, y_batch)
                 loss.backward()
                 optimizer.step()
 
-                # stats
+                bs = X_batch.size(0)
                 with torch.no_grad():
                     predicted = (preds >= 0.5).float()
                     acc = (predicted == y_batch).float().mean().item()
 
-                bs = X_batch.size(0)
                 train_loss += loss.item() * bs
                 train_acc += acc * bs
                 n_train += bs
@@ -154,37 +157,35 @@ class MentalHealthTrainer:
             train_loss /= n_train
             train_acc /= n_train
 
-            # EVAL TRAIN / VAL 
+            # ---- EVAL ----
             metrics_train = self.eval(model, train_set, device)
             metrics_val = self.eval(model, val_set, device)
-
             val_acc = metrics_val["accuracy"]
 
             print(
-                f"[Epoch {epoch+1:02d}] "
+                f"[{model_name}] Epoch {epoch+1:02d} | "
                 f"Train Loss: {train_loss:.4f} Acc: {train_acc:.4f} | "
                 f"Eval Train Acc: {metrics_train['accuracy']:.4f} | "
                 f"Eval Val Acc: {metrics_val['accuracy']:.4f}"
             )
 
-            # Early stopping simple
+            # Early stopping + sauvegarde des meilleurs poids
             if val_acc > best_val:
                 best_val = val_acc
                 counter = 0
-                torch.save(model.state_dict(), "best_model_weights.pt")
+                torch.save(model.state_dict(), f"best_model_weights_{model_name}.pt")
             else:
                 counter += 1
                 if counter >= patience:
-                    print("Early stopping déclenché.")
+                    print(f"Early stopping for {model_name}.")
                     break
 
-        # Recharger les meilleurs poids
-        model.load_state_dict(torch.load("best_model_weights.pt", map_location=device))
+        return best_val
 
     @torch.inference_mode
     def eval(
         self,
-        model: MentalHealthModel,
+        model: torch.nn.Module,
         dataset: MentalDataset,
         device: torch.device,
     ) -> Dict[str, float]:
@@ -206,13 +207,13 @@ class MentalHealthTrainer:
             num_workers=0,
         )
 
-        all_acc: List[Tensor] = []
-        all_loss: List[Tensor] = []
+        all_acc: List[torch.Tensor] = []
+        all_loss: List[torch.Tensor] = []
 
         for X_batch, y_batch in loader:
             X_batch, y_batch = X_batch.to(device), y_batch.to(device)
 
-            preds = model(X_batch)  # (B,1)
+            preds = model(X_batch)
             loss = F.binary_cross_entropy(preds, y_batch, reduction="none")
 
             predicted = (preds >= 0.5).float()
