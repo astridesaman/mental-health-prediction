@@ -1,186 +1,109 @@
-# Mental Health Prediction 🧠  
-*Projet de classification binaire en intelligence artificielle*
+# Mental Health Prediction 🧠 – Python / PyTorch
+
+# Prédiction de la Dépression – Projet Kaggle (Python)
+
+Projet réalisé en **Python** dans le cadre du cours de **Python pour l’Intelligence Artificielle** en **Licence 3 Intelligence Artificielle (L3 IA)** à l’**Université Côte d’Azur**.  
+L’objectif est de prédire la **probabilité de dépression** d’une personne à partir de données personnelles, académiques et professionnelles, issues d’une compétition Kaggle (*Playground Series – Exploring Mental Health Data*).
+
+This project was developed in **Python** as part of the **Python for AI** course in the **3rd year of the Artificial Intelligence Bachelor’s degree (L3 AI)** at **Université Côte d'Azur**.  
+The goal is to predict the **probability of depression** for an individual based on personal, academic and professional features, using data from a Kaggle playground competition (*Exploring Mental Health Data*).
 
 ---
 
-## 🎯 Objectif du projet
+## 📌 Objectifs du projet
 
-Ce projet vise à prédire si une personne présente un risque de dépression (`Depression = 1`) ou non (`Depression = 0`) à partir de caractéristiques personnelles, académiques, professionnelles et sociales.
+- Charger et prétraiter les données Kaggle :
+  - Suppression des colonnes non pertinentes (`id`, `Name`)
+  - Gestion des valeurs manquantes
+  - Encodage one-hot des variables catégorielles
+  - Standardisation des variables numériques
+- Mettre en place un pipeline complet d’apprentissage supervisé en Python / PyTorch.
+- Entraîner et comparer deux modèles de classification :
+  - **Modèle linéaire** (régression logistique / Linear baseline)  
+  - **Réseau de neurones fully-connected** (MLP avec 2 couches cachées, Dropout, régularisation L2)
+- Évaluer les modèles via :
+  - Loss (Binary Cross Entropy)  
+  - Accuracy (train / validation)
+- Sélectionner le meilleur modèle sur l’ensemble de validation.
+- Générer un fichier `submission.csv` prêt à être soumis sur Kaggle.
 
-L’objectif est double :
+## 📌 Project Objectives
 
-- Appliquer un pipeline complet de Machine Learning avec PyTorch
-- Construire un modèle performant, interprétable et reproductible
-- Soumettre les prédictions dans une compétition Kaggle réelle
-
----
-
-## 📁 Arborescence du projet
-
-mental-health-prediction/
-├── data/
-│ ├── train.csv
-│ ├── test.csv
-│ └── sample_submission.csv
-│
-├── src/
-│ ├── init.py
-│ ├── dataset.py
-│ ├── model.py
-│ └── trainer.py
-│
-├── best_model_weights.pt
-├── main.py
-├── predict.py
-├── submission.csv
-└── README.md
-
-
----
-
-## 🧠 Description des données
-
-Le jeu de données contient :
-
-### Variables numériques :
-- Âge
-- Pression académique et professionnelle
-- Note moyenne (CGPA)
-- Satisfaction (études / travail)
-- Nombre d’heures de travail / études
-- Niveau de stress financier
-
-### Variables catégorielles :
-- Genre
-- Ville
-- Statut (étudiant / professionnel)
-- Profession
-- Qualité du sommeil
-- Habitudes alimentaires
-- Diplôme
-- Pensées suicidaires (oui / non)
-- Antécédents familiaux de troubles mentaux
-
-### Variable cible :
-- `Depression` : 0 = non dépressif, 1 = dépressif
+- Load and preprocess the Kaggle dataset:
+  - Remove non-informative columns (`id`, `Name`)
+  - Handle missing values
+  - One-hot encode categorical variables
+  - Standardize numerical features
+- Implement a complete supervised learning pipeline in Python / PyTorch.
+- Train and compare two classification models:
+  - **Linear model** (logistic regression / Linear baseline)  
+  - **Fully-connected neural network** (MLP with 2 hidden layers, Dropout, L2 regularization)
+- Evaluate models using:
+  - Binary Cross Entropy loss  
+  - Accuracy (train / validation)
+- Select the best-performing model on the validation set.
+- Generate a `submission.csv` file for Kaggle submission.
 
 ---
 
-## ⚙️ Pipeline de traitement
+## 📂 Données utilisées
 
-### 1. Prétraitement
-- Suppression des colonnes inutiles (`id`, `Name`)
-- Remplissage des valeurs manquantes :
-  - médiane pour les variables numériques
-  - `"Unknown"` pour les variables catégorielles
-- Encodage one-hot des variables catégorielles
-- Normalisation des variables numériques (standardisation)
-- Séparation train / validation : 80% / 20%
+Données issues de la compétition Kaggle *Exploring Mental Health Data* (Playground Series – S4, E11) :
 
----
+- **train.csv**  
+  Contient les observations annotées avec la variable cible `Depression`.
 
-### 2. Modèle utilisé
+- **test.csv**  
+  Même structure que `train.csv` mais sans la colonne `Depression`. Utilisé pour produire la soumission Kaggle.
 
-Architecture de réseau de neurones (MLP) :
+- **sample_submission.csv**  
+  Fichier gabarit contenant les colonnes `id` et `Depression`, indiquant le format attendu pour `submission.csv`.
 
-Input → Linear(128) → ReLU → Dropout
-→ Linear(64) → ReLU → Dropout
-→ Linear(1) → Sigmoid
+## 📂 Data Used
 
+Data comes from the Kaggle *Exploring Mental Health Data* playground competition:
 
-- Nombre de paramètres : **53 889**
-- Fonction de perte : `Binary Cross Entropy`
-- Optimiseur : Adam + régularisation L2 (`weight_decay`)
-- Batch size : 64
-- Fonction de décision : seuil à 0.5
+- **train.csv**  
+  Includes all training samples with the target variable `Depression`.
+
+- **test.csv**  
+  Same structure as `train.csv` but without the `Depression` column. Used for generating predictions.
+
+- **sample_submission.csv**  
+  Template file with columns `id` and `Depression`, defining the expected format for `submission.csv`.
 
 ---
 
-### 3. Entraînement
+## 🧠 Technologies
 
-- Métrique principale : Accuracy
-- Early stopping activé pour éviter l’overfitting
-- Sauvegarde automatique des meilleurs poids
-
----
-
-## 📊 Résultats obtenus
-
-Sur l’ensemble de validation :
-
-- **Accuracy Validation ≈ 94.3%**
-- Très faible overfitting
-- Bonne généralisation
-- Courbe de convergence stable
-
-Sur Kaggle :
-- Score public proche de **94%**
-- Performance solide pour un projet académique en IA
+- Python 3  
+- pandas, numpy  
+- PyTorch (torch, torch.nn, DataLoader)  
+- scikit-learn (pour certaines métriques / split éventuel)  
+- Kaggle (plateforme d’évaluation)
 
 ---
 
-## 🔍 Problèmes rencontrés et solutions
-
-### 1. Problèmes d'import des modules
-Résolu en structurant le projet avec `src/` et `__init__.py`
-
-### 2. Valeurs manquantes
-Résolu via imputation automatique
-
-### 3. Catégories inconnues dans test
-Résolu par réalignement des colonnes avec `reindex()`
-
-### 4. Sur-apprentissage
-Résolu par :
-- Dropout
-- Régularisation L2
-- Early stopping
-
----
-
-## Comment lancer le projet
-
-### Entraîner le modèle :
+## 🏗️ Structure du projet / Project Structure
 
 ```bash
-python main.py
+mental-health-prediction/
+├── data/
+│   ├── train.csv
+│   ├── test.csv
+│   └── sample_submission.csv
+│
+├── src/
+│   ├── __init__.py
+│   ├── dataset.py        # Classe MentalDataset (PyTorch Dataset)
+│   ├── model.py          # LinearBaseline + MentalHealthModelNN
+│   └── trainer.py        # load_and_preprocess + MentalHealthTrainer
+│
+├── main.py               # Entraînement + comparaison des modèles
+├── predict.py            # Génération de submission.csv pour Kaggle
+└── README.md
 ```
-
-### ✅ Technologies utilisées
-
-- Python 3.13
-
-- PyTorch
-
-- pandas / numpy
-
-- VS Code
-
-- Kaggle
-
-### ✨ Conclusion
-
-Ce projet démontre la capacité à :
-
-- Construire un pipeline ML complet
-
-- Gérer des données réelles
-
-- Implémenter un modèle de deep learning
-
-- Évaluer et régulariser un réseau neuronal
-
-- Déployer un modèle sur Kaggle
-
-Il constitue une base solide pour des projets plus avancés en :
-
-- IA médicale
-
-- Data science
-
-- Machine Learning appliqué à la santé
-
-### 👩‍💻 Auteur
+### 👩‍💻 Auteurs
 
 - Projet réalisé par : Astride SAMAN et Aya BOUROUISSE
 - Licence Informatique 3 – Intelligence Artificielle
