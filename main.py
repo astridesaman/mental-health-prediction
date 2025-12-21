@@ -1,6 +1,6 @@
 from src.trainer import MentalHealthTrainer, load_and_preprocess
 from src.dataset import MentalDataset
-from src.model import LinearBaseline, MentalHealthModelNN
+from src.model import LinearBaseline, MentalHealthModelNN, MentalHealthModelNNv2
 
 import torch
 import torch.optim as optim
@@ -29,6 +29,7 @@ def main():
     models = {
         "linear": LinearBaseline(input_dim),
         "nn": MentalHealthModelNN(input_dim),
+        "nn2": MentalHealthModelNNv2(input_dim),
     }
 
     val_scores = {}
@@ -65,7 +66,7 @@ def main():
     best_state_dict = torch.load(f"best_model_weights_{best_model_name}.pt", map_location="cpu")
     torch.save(
         {
-            "model_type": best_model_name,   # "linear" ou "nn"
+            "model_type": best_model_name,   # "linear", "nn", or "nn2"
             "state_dict": best_state_dict,
             "mean": mean,
             "std": std,
