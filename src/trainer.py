@@ -1,34 +1,32 @@
 from dataclasses import dataclass
-from typing import Dict, List
-from src.dataset import MentalDataset
+from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
-
 import torch
 import torch.nn.functional as F
-from torch import Tensor
 from torch.utils.data import DataLoader, RandomSampler
 import torch.optim as optim
 
+from src.dataset import MentalDataset
 
-# 1. Chargement & prétraitement des données
+
+# =========================
+# 1) Chargement & preprocessing
+# =========================
 
 def load_and_preprocess(path: str):
     """
     Charge train.csv, applique le prétraitement et renvoie :
     X_train, y_train, X_val, y_val, mean, std, feature_cols
     """
-
     df = pd.read_csv(path)
 
-    # Cible
     target_col = "Depression"
 
-    # Colonnes inutiles
+    # Drop colonnes inutiles
     df = df.drop(columns=["id", "Name"])
 
-    # Colonnes numériques
     num_cols = [
         "Age",
         "Academic Pressure",
@@ -40,7 +38,6 @@ def load_and_preprocess(path: str):
         "Financial Stress",
     ]
 
-    # Colonnes catégorielles
     cat_cols = [
         "Gender",
         "City",
@@ -53,24 +50,21 @@ def load_and_preprocess(path: str):
         "Family History of Mental Illness",
     ]
 
-    # Séparer X / y
     y = df[target_col].astype("float32").values
     X = df.drop(columns=[target_col])
 
-    # Valeurs manquantes
-    X[num_cols] = X[num_cols].fillna(X[num_cols].median())
+    # NA
+    X[num_cols] = X[num_cols].fillna(X[num_cols].median(numeric_only=True))
     X[cat_cols] = X[cat_cols].fillna("Unknown")
 
-    # One-hot encoding
+    # one-hot
     X = pd.get_dummies(X, columns=cat_cols)
 
-    # Garder la liste des colonnes (pour test plus tard)
     feature_cols = X.columns.tolist()
 
-    # Conversion en numpy
     X = X.astype("float32").values
 
-    # Split train / val (80 / 20)
+    # split 80/20
     np.random.seed(42)
     indices = np.random.permutation(len(X))
     split = int(0.8 * len(X))
@@ -81,7 +75,7 @@ def load_and_preprocess(path: str):
     X_train, X_val = X[train_idx], X[val_idx]
     y_train, y_val = y[train_idx], y[val_idx]
 
-    # Standardisation
+    # standardisation
     mean = X_train.mean(axis=0, keepdims=True)
     std = X_train.std(axis=0, keepdims=True) + 1e-8
 
@@ -90,13 +84,113 @@ def load_and_preprocess(path: str):
 
     return X_train, y_train, X_val, y_val, mean, std, feature_cols
 
-# 4. Trainer 
+
+def preprocess_test(df_test: pd.DataFrame, feature_cols: List[str], mean: np.ndarray, std: np.ndarray) -> np.ndarray:
+    """
+    Applique le même preprocessing au test:
+    - drop id, Name
+    - NA
+    - one-hot
+    - alignement des colonnes avec feature_cols
+    - standardisation avec mean/std du train
+    """
+    df = df_test.copy()
+
+    for col in ["id", "Name"]:
+        if col in df.columns:
+            df = df.drop(columns=[col])
+
+    num_cols = [
+        "Age",
+        "Academic Pressure",
+        "Work Pressure",
+        "CGPA",
+        "Study Satisfaction",
+        "Job Satisfaction",
+        "Work/Study Hours",
+        "Financial Stress",
+    ]
+
+    cat_cols = [
+        "Gender",
+        "City",
+        "Working Professional or Student",
+        "Profession",
+        "Sleep Duration",
+        "Dietary Habits",
+        "Degree",
+        "Have you ever had suicidal thoughts ?",
+        "Family History of Mental Illness",
+    ]
+
+    df[num_cols] = df[num_cols].fillna(df[num_cols].median(numeric_only=True))
+    df[cat_cols] = df[cat_cols].fillna("Unknown")
+
+    df = pd.get_dummies(df, columns=cat_cols)
+
+    # align colonnes
+    df = df.reindex(columns=feature_cols, fill_value=0)
+
+    X = df.astype("float32").values
+    X = (X - mean) / (std + 1e-8)
+    return X
+
+
+@torch.inference_mode()
+def predict_on_test(
+    model: torch.nn.Module,
+    test_csv_path: str,
+    feature_cols: List[str],
+    mean: np.ndarray,
+    std: np.ndarray,
+    device: torch.device,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Retourne: ids, probas, preds
+    """
+    df_test = pd.read_csv(test_csv_path)
+    if "id" not in df_test.columns:
+        raise ValueError("test.csv doit contenir une colonne 'id'.")
+
+    ids = df_test["id"].to_numpy()
+
+    X_test = preprocess_test(df_test, feature_cols, mean, std)
+    X_tensor = torch.from_numpy(np.asarray(X_test, dtype="float32")).to(device)
+
+    model.to(device)
+    model.eval()
+
+    probas = model(X_tensor).detach().cpu().numpy().reshape(-1)
+    preds = (probas >= 0.5).astype(int)
+
+    return ids, probas, preds
+
+
+def generate_csv_probabilities(output_path: str, ids: np.ndarray, probabilities: np.ndarray) -> None:
+    df = pd.DataFrame({
+        "id": ids,
+        "Depression_Probability": probabilities
+    })
+    df.to_csv(output_path, index=False)
+
+
+def generate_kaggle_submission(output_path: str, ids: np.ndarray, preds: np.ndarray) -> None:
+    df = pd.DataFrame({
+        "id": ids,
+        "Depression": preds
+    })
+    df.to_csv(output_path, index=False)
+
+
+# =========================
+# 2) Trainer
+# =========================
 
 @dataclass
 class MentalHealthTrainer:
     batch_size: int
     n_epochs: int
-    eval_samples: int  # nb d'échantillons pour l'éval train/val
+    eval_samples: int
 
     def train(
         self,
@@ -112,7 +206,6 @@ class MentalHealthTrainer:
         Sauvegarde les meilleurs poids dans best_model_weights_{model_name}.pt
         """
         model.to(device)
-
         n_params = sum(p.numel() for p in model.parameters())
         print(f"\n=== Training {model_name} ({n_params:,} params) ===")
 
@@ -129,7 +222,6 @@ class MentalHealthTrainer:
         counter = 0
 
         for epoch in range(self.n_epochs):
-            # ---- TRAIN ----
             model.train()
             train_loss = 0.0
             train_acc = 0.0
@@ -139,7 +231,7 @@ class MentalHealthTrainer:
                 X_batch, y_batch = X_batch.to(device), y_batch.to(device)
 
                 optimizer.zero_grad()
-                preds = model(X_batch)          # (B,1) dans [0,1]
+                preds = model(X_batch)  # (B,1)
                 loss = F.binary_cross_entropy(preds, y_batch)
                 loss.backward()
                 optimizer.step()
@@ -156,7 +248,6 @@ class MentalHealthTrainer:
             train_loss /= n_train
             train_acc /= n_train
 
-            # ---- EVAL ----
             metrics_train = self.eval(model, train_set, device)
             metrics_val = self.eval(model, val_set, device)
             val_acc = metrics_val["accuracy"]
@@ -168,7 +259,6 @@ class MentalHealthTrainer:
                 f"Eval Val Acc: {metrics_val['accuracy']:.4f}"
             )
 
-            # Early stopping + sauvegarde des meilleurs poids
             if val_acc > best_val:
                 best_val = val_acc
                 counter = 0
@@ -193,11 +283,7 @@ class MentalHealthTrainer:
         n = len(dataset)
         n_samples = min(self.eval_samples, n)
 
-        sampler = RandomSampler(
-            dataset,
-            replacement=False,
-            num_samples=n_samples,
-        )
+        sampler = RandomSampler(dataset, replacement=False, num_samples=n_samples)
 
         loader = DataLoader(
             dataset,
@@ -211,7 +297,6 @@ class MentalHealthTrainer:
 
         for X_batch, y_batch in loader:
             X_batch, y_batch = X_batch.to(device), y_batch.to(device)
-
             preds = model(X_batch)
             loss = F.binary_cross_entropy(preds, y_batch, reduction="none")
 
