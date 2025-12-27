@@ -259,6 +259,7 @@ class MentalHealthTrainer:
                 f"Eval Val Acc: {metrics_val['accuracy']:.4f}"
             )
 
+            # Early stopping + sauvegarde meilleurs poids
             if val_acc > best_val:
                 best_val = val_acc
                 counter = 0

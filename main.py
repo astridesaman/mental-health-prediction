@@ -5,7 +5,6 @@ from src.trainer import (
     MentalHealthTrainer,
     load_and_preprocess,
     predict_on_test,
-    generate_csv_probabilities,
     generate_kaggle_submission,
 )
 from src.dataset import MentalDataset
@@ -20,6 +19,23 @@ def build_model(name: str, input_dim: int):
     if name == "nn2":
         return MentalHealthModelNNv2(input_dim)
     raise ValueError(f"Unknown model name: {name}")
+
+
+def build_optimizer(model: torch.nn.Module, model_name: str):
+    """
+    Choix des hyperparamètres (lr) issus du tuning :
+      - linear : 5e-3
+      - nn     : 5e-4
+      - nn2    : 1e-3
+    weight_decay gardé constant à 1e-4 pour régularisation L2.
+    """
+    best_lrs = {
+        "linear": 5e-3,
+        "nn": 5e-4,
+        "nn2": 1e-3,
+    }
+    lr = best_lrs[model_name]
+    return optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
 
 
 def main():
@@ -37,15 +53,10 @@ def main():
     model_names = ["linear", "nn", "nn2"]
     val_scores = {}
 
-    # 3) Entraîner chaque modèle
+    # 3) Entraîner chaque modèle avec son meilleur lr
     for name in model_names:
         model = build_model(name, input_dim)
-
-        # Option: petit ajustement pour nn2
-        if name == "nn2":
-            optimizer = optim.Adam(model.parameters(), lr=8e-4, weight_decay=2e-4)
-        else:
-            optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+        optimizer = build_optimizer(model, name)
 
         best_val_acc = trainer.train(
             model=model,
@@ -59,14 +70,15 @@ def main():
 
     # 4) Tableau comparaison
     print("\n=== Model comparison (validation accuracy) ===")
-    print("+---------+--------------------+")
-    print("| Model   | Val Accuracy       |")
-    print("+---------+--------------------+")
+    print("+---------+--------------------+----------------+")
+    print("| Model   | Best LR            | Val Accuracy   |")
+    print("+---------+--------------------+----------------+")
+    best_lrs = {"linear": 5e-3, "nn": 5e-4, "nn2": 1e-3}
     for name, acc in val_scores.items():
-        print(f"| {name:<7} | {acc*100:>6.2f}%            |")
-    print("+---------+--------------------+")
+        print(f"| {name:<7} | {best_lrs[name]:<18} | {acc*100:>6.2f}%       |")
+    print("+---------+--------------------+----------------+")
 
-    # 5) Choisir meilleur
+    # 5) Choisir meilleur modèle
     best_model_name = max(val_scores, key=val_scores.get)
     best_val = val_scores[best_model_name]
     print(f"\nBest model: {best_model_name} ({best_val*100:.2f}% val accuracy)")
@@ -81,6 +93,7 @@ def main():
             "std": std,
             "feature_cols": feature_cols,
             "input_dim": input_dim,
+            "best_lr": best_lrs[best_model_name],
         },
         "mental_health_model.pt",
     )
@@ -89,8 +102,10 @@ def main():
     # 7) Recréer meilleur modèle + charger poids
     best_model = build_model(best_model_name, input_dim)
     best_model.load_state_dict(torch.load(f"best_model_weights_{best_model_name}.pt", map_location=device))
+    best_model.to(device)
+    best_model.eval()
 
-    # 8) Prédire sur test.csv
+    # 8) Prédire sur test.csv  
     ids, probas, preds = predict_on_test(
         model=best_model,
         test_csv_path="./data/test.csv",
@@ -101,9 +116,9 @@ def main():
     )
 
     # 9) Générer fichiers CSV
-    generate_csv_probabilities("predictions.csv", ids, probas)
-    generate_kaggle_submission("submissions.csv", ids, preds)
-    print("Generated predictions.csv and submission.csv")
+    # generate_csv_probabilities("predictions.csv", ids, probas)  # si tu veux un fichier avec probas
+    generate_kaggle_submission("submission.csv", ids, preds)
+    print("Generated submission.csv")
 
 
 if __name__ == "__main__":
