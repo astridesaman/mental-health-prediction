@@ -116,7 +116,6 @@ def main():
     )
 
     # 9) Générer fichiers CSV
-    # generate_csv_probabilities("predictions.csv", ids, probas)  # si tu veux un fichier avec probas
     generate_kaggle_submission("submission.csv", ids, preds)
     print("Generated submission.csv")
 

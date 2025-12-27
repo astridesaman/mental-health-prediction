@@ -166,14 +166,6 @@ def predict_on_test(
     return ids, probas, preds
 
 
-def generate_csv_probabilities(output_path: str, ids: np.ndarray, probabilities: np.ndarray) -> None:
-    df = pd.DataFrame({
-        "id": ids,
-        "Depression_Probability": probabilities
-    })
-    df.to_csv(output_path, index=False)
-
-
 def generate_kaggle_submission(output_path: str, ids: np.ndarray, preds: np.ndarray) -> None:
     df = pd.DataFrame({
         "id": ids,
