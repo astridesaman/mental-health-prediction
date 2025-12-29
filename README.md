@@ -96,15 +96,14 @@ mental-health-prediction/
 ├── src/
 │   ├── __init__.py
 │   ├── dataset.py        # Classe MentalDataset (PyTorch Dataset)
-│   ├── model.py          # LinearBaseline + MentalHealthModelNN
+│   ├── model.py          # LinearBaseline + MentalHealthModelNN + MentalHealthModelNNv2
 │   └── trainer.py        # load_and_preprocess + MentalHealthTrainer
 │
 ├── main.py               # Entraînement + comparaison des modèles
-├── predict.py            # Génération de submission.csv pour Kaggle
 └── README.md
 ```
 ### 👩‍💻 Auteurs
 
-- Projet réalisé par : Astride SAMAN et Aya BOUROUISSE
+- Projet réalisé par : Astride SAMAN
 - Licence Informatique 3 – Intelligence Artificielle
 - Université Côte d’Azur
